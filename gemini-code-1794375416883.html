@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интеллект-карта: Прототипирование (8 класс)</title>
+    <style>
+        /* === Базовые настройки и Темная Технологичная Тема === */
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            --node-bg: rgba(255, 255, 255, 0.08);
+            --node-border: rgba(255, 255, 255, 0.15);
+            --node-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            --node-hover-bg: rgba(255, 255, 255, 0.15);
+            --text-color: #f1f2f6;
+            --text-title: #ffffff;
+            --line-color: rgba(0, 210, 255, 0.4);
+            --center-node-bg: rgba(0, 210, 255, 0.25);
+            --center-node-border: rgba(0, 210, 255, 0.5);
+            --category-node-bg: rgba(255, 75, 145, 0.2);
+            --category-node-border: rgba(255, 75, 145, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-color);
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            text-align: center;
+            padding: 25px 15px;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+
+        header h1 {
+            font-size: 1.8rem;
+            color: var(--text-title);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        header p {
+            font-size: 1rem;
+            color: #a4b0be;
+        }
+
+        /* === Контейнер Карты === */
+        #map-container {
+            position: relative;
+            flex: 1;
+            padding: 50px 20px 120px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 1500px;
+            margin: 0 auto;
+        }
+
+        /* SVG для соединительных линий */
+        #connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        path.line {
+            fill: none;
+            stroke: var(--line-color);
+            stroke-width: 3px;
+            stroke-linecap: round;
+            filter: drop-shadow(0px 0px 5px rgba(0, 210, 255, 0.5));
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: drawLine 1.5s ease forwards;
+        }
+
+        @keyframes drawLine {
+            to { stroke-dashoffset: 0; }
+        }
+
+        /* === Узлы (Nodes) === */
+        .node {
+            position: relative;
+            z-index: 2;
+            background: var(--node-bg);
+            border: 1px solid var(--node-border);
+            box-shadow: var(--node-shadow);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 15px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            font-weight: 600;
+            user-select: none;
+        }
+
+        .node:hover {
+            transform: translateY(-5px) scale(1.03);
+            background: var(--node-hover-bg);
+            box-shadow: 0 12px 40px 0 rgba(0, 210, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .node:active {
+            transform: translateY(-1px) scale(0.98);
+        }
+
+        /* Стилизация разных уровней */
+        .node-center {
+            background: var(--center-node-bg);
+            border-color: var(--center-node-border);
+            font-size: 1.4rem;
+            padding: 20px 40px;
+            margin-bottom: 60px;
+            border-radius: 20px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            max-width: 90%;
+        }
+
+        .node-category {
+            background: var(--category-node-bg);
+            border-color: var(--category-node-border);
+            font-size: 1.15rem;
+            margin-bottom: 35px;
+            border-radius: 15px;
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+
+        .node-item {
+            font-size: 0.95rem;
+            padding: 12px 18px;
+            font-weight: 400;
+            width: 100%;
+            letter-spacing: 0.5px;
+        }
+
+        /* === Структура Дерева === */
+        .level-categories {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 40px;
+            width: 100%;
+        }
+
+        .branch {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            min-width: 240px;
+            max-width: 280px;
+        }
+
+        .level-items {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+            align-items: center;
+        }
+
+        /* === Модальное окно === */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: rgba(30, 41, 59, 0.95);
+            padding: 35px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 90%;
+            max-width: 550px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.5), 0 0 20px rgba(0, 210, 255, 0.2);
+            transform: translateY(30px) scale(0.95);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: translateY(0) scale(1);
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 75, 145, 0.2);
+            color: #ff4b91;
+            border: 1px solid rgba(255, 75, 145, 0.5);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover { 
+            background: #ff4b91; 
+            color: #fff;
+            box-shadow: 0 0 10px rgba(255, 75, 145, 0.5);
+        }
+
+        .modal-title {
+            color: #00d2ff;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            padding-right: 40px;
+        }
+
+        .modal-desc {
+            color: #ced6e0;
+            line-height: 1.7;
+            font-size: 1.05rem;
+        }
+
+        /* === Адаптивность для мобильных === */
+        @media (max-width: 900px) {
+            .level-categories { gap: 30px; }
+            .branch { min-width: 45%; }
+        }
+
+        @media (max-width: 600px) {
+            .level-categories {
+                flex-direction: column;
+                align-items: center;
+                gap: 50px;
+            }
+            .branch {
+                width: 100%;
+                max-width: 90%;
+            }
+            #map-container { padding: 30px 10px 60px 10px; }
+            .node-center { font-size: 1.2rem; padding: 15px 20px; margin-bottom: 40px; }
+            .modal-content { padding: 25px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Прототипирование: Сферы применения</h1>
+        <p>Интерактивная карта для 8 класса. Нажми на блок, чтобы узнать, как создаются технологии будущего!</p>
+    </header>
+
+    <div id="map-container">
+        <!-- SVG для линий -->
+        <svg id="connections"></svg>
+    </div>
+
+    <!-- Модальное окно -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal-content">
+            <button class="modal-close" id="modal-close-btn">&times;</button>
+            <h2 class="modal-title" id="modal-title">Заголовок</h2>
+            <div class="modal-desc" id="modal-desc">Описание...</div>
+        </div>
+    </div>
+
+    <script>
+        // === 1. Данные Интеллект-карты ===
+        const mindMapData = {
+            id: "center",
+            title: "Что такое прототипирование?",
+            desc: "Прототип — это черновая, пробная версия детали, устройства или программы. Прототипирование позволяет быстро и дешево проверить идею, найти ошибки и протестировать работу будущего изделия перед тем, как запускать его в массовое производство.",
+            type: "center",
+            children: [
+                {
+                    id: "cat-1",
+                    title: "Промышленность и Инженерия",
+                    desc: "В инженерии любая ошибка в серийном производстве стоит миллионы. Поэтому сначала печатают прототип детали, чтобы проверить её в деле.",
+                    type: "category",
+                    children: [
+                        { id: "item-1-1", title: "Автомобилестроение", desc: "Создание макетов кузова для продувки в аэродинамической трубе. Также печатают приборные панели для проверки эргономики (удобно ли водителю нажимать кнопки)." },
+                        { id: "item-1-2", title: "Авиация и Космос", desc: "Прототипирование деталей двигателей и узлов крепления. Цель — найти баланс между максимальной прочностью и минимальным весом детали." },
+                        { id: "item-1-3", title: "Робототехника", desc: "Быстрое создание корпусов для микроконтроллеров (например, Arduino), шестеренок и манипуляторов. Если деталь не подошла, её можно изменить в 3D-редакторе и перепечатать за пару часов." }
+                    ]
+                },
+                {
+                    id: "cat-2",
+                    title: "Медицина",
+                    desc: "В медицине прототипирование спасает жизни. Технологии позволяют создавать изделия индивидуально под каждого человека.",
+                    type: "category",
+                    children: [
+                        { id: "item-2-1", title: "Протезирование", desc: "Создание бионических или тяговых протезов рук и ног. 3D-печать позволяет сделать протез легким, красивым и точно подходящим по размеру конкретному человеку." },
+                        { id: "item-2-2", title: "Стоматология", desc: "Сканирование челюсти пациента (3D-сканером) и печать высокоточных элайнеров (кап) для выравнивания зубов, а также шаблонов для хирургических операций." },
+                        { id: "item-2-3", title: "Биопечать", desc: "Технология будущего, которая уже применяется: печать каркасов органов (например, ушей или фрагментов кожи) из специальных биосовместимых материалов и живых клеток." }
+                    ]
+                },
+                {
+                    id: "cat-3",
+                    title: "Архитектура и Дизайн",
+                    desc: "Позволяет увидеть объект в объеме еще до того, как будет заложен фундамент или запущено производство товара.",
+                    type: "category",
+                    children: [
+                        { id: "item-3-1", title: "Макеты зданий", desc: "Печать или лазерная резка масштабных моделей жилых комплексов и целых кварталов. Помогает оценить внешний вид здания и как на него будут падать тени." },
+                        { id: "item-3-2", title: "Предметный дизайн", desc: "Создание прототипов мебели, посуды, светильников. Дизайнер может подержать предмет в руках, оценить его форму, вес и удобство." },
+                        { id: "item-3-3", title: "Упаковка", desc: "Разработка формы флаконов для духов, бутылок или коробок для электроники. Прототип помогает проверить, удобно ли упаковка лежит в руке." }
+                    ]
+                },
+                {
+                    id: "cat-4",
+                    title: "Потребительские товары",
+                    desc: "Всё, что нас окружает, когда-то было прототипом. Это сфера, где прототипирование используется каждый день.",
+                    type: "category",
+                    children: [
+                        { id: "item-4-1", title: "Электроника (Гаджеты)", desc: "Прототипы корпусов для смартфонов, умных часов и наушников. Производители делают десятки вариантов, чтобы выбрать самый стильный и удобный." },
+                        { id: "item-4-2", title: "Игрушки и Сувениры", desc: "Разработка новых фигурок, конструкторов, брелоков. С помощью лазерной резки из фанеры можно быстро создать прототип пазла или сборной модели." },
+                        { id: "item-4-3", title: "Кинематограф", desc: "Создание сложного реквизита: брони, оружия, масок монстров для фильмов и косплея. Гораздо дешевле напечатать реквизит на 3D-принтере, чем делать его вручную." }
+                    ]
+                },
+                {
+                    id: "cat-5",
+                    title: "Оборудование (Технологии)",
+                    desc: "С помощью чего мы можем создать прототип своими руками в мастерской или дома?",
+                    type: "category",
+                    children: [
+                        { id: "item-5-1", title: "3D-принтеры (FDM)", desc: "Самый доступный вид печати. Принтер плавит пластиковую нить (филамент) и наносит ее слой за слоем, выращивая деталь. Идеально для уроков технологии!" },
+                        { id: "item-5-2", title: "Лазерные станки", desc: "Вырезают или гравируют контуры на плоских материалах (фанера, акрил, картон) с помощью сфокусированного луча лазера. Управляются через программы вроде LightBurn." },
+                        { id: "item-5-3", title: "Фрезерные станки с ЧПУ", desc: "Используют вращающуюся фрезу, которая «вырезает» деталь из цельного куска материала (дерева, пластика, металла), убирая все лишнее." }
+                    ]
+                }
+            ]
+        };
+
+        const mapContainer = document.getElementById('map-container');
+        const svgCanvas = document.getElementById('connections');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDesc = document.getElementById('modal-desc');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+
+        let connections = [];
+
+        // === 2. Генерация DOM дерева ===
+        function buildMap() {
+            const centerNode = createNodeElement(mindMapData);
+            mapContainer.appendChild(centerNode);
+
+            const branchesContainer = document.createElement('div');
+            branchesContainer.className = 'level-categories';
+            mapContainer.appendChild(branchesContainer);
+
+            mindMapData.children.forEach(category => {
+                const branchDiv = document.createElement('div');
+                branchDiv.className = 'branch';
+                
+                const categoryNode = createNodeElement(category);
+                branchDiv.appendChild(categoryNode);
+                
+                connections.push({ from: mindMapData.id, to: category.id });
+
+                const itemsContainer = document.createElement('div');
+                itemsContainer.className = 'level-items';
+
+                category.children.forEach(item => {
+                    const itemNode = createNodeElement(item, 'node-item');
+                    itemsContainer.appendChild(itemNode);
+                    connections.push({ from: category.id, to: item.id });
+                });
+
+                branchDiv.appendChild(itemsContainer);
+                branchesContainer.appendChild(branchDiv);
+            });
+        }
+
+        function createNodeElement(data, extraClass = '') {
+            const el = document.createElement('div');
+            el.className = `node ${data.type === 'center' ? 'node-center' : data.type === 'category' ? 'node-category' : extraClass}`;
+            el.id = data.id;
+            el.textContent = data.title;
+            
+            el.addEventListener('click', () => openModal(data.title, data.desc));
+            return el;
+        }
+
+        // === 3. Логика Модального окна ===
+        function openModal(title, desc) {
+            modalTitle.textContent = title;
+            modalDesc.textContent = desc;
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            modal.classList.remove('active');
+        }
+
+        modalCloseBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.classList.contains('active')) {
+                closeModal();
+            }
+        });
+
+        // === 4. Отрисовка линий (SVG) ===
+        function drawLines() {
+            svgCanvas.innerHTML = '';
+            const containerRect = mapContainer.getBoundingClientRect();
+
+            connections.forEach(conn => {
+                const elFrom = document.getElementById(conn.from);
+                const elTo = document.getElementById(conn.to);
+
+                if (!elFrom || !elTo) return;
+
+                const rectFrom = elFrom.getBoundingClientRect();
+                const rectTo = elTo.getBoundingClientRect();
+
+                const startX = rectFrom.left + rectFrom.width / 2 - containerRect.left;
+                const startY = rectFrom.bottom - containerRect.top;
+
+                const endX = rectTo.left + rectTo.width / 2 - containerRect.left;
+                const endY = rectTo.top - containerRect.top;
+
+                // Для темной темы линии сделаны чуть более "натянутыми" (curvature = 0.35)
+                const curvature = 0.35;
+                const cp1X = startX;
+                const cp1Y = startY + Math.abs(endY - startY) * curvature;
+                const cp2X = endX;
+                const cp2Y = endY - Math.abs(endY - startY) * curvature;
+
+                const pathData = `M ${startX} ${startY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${endX} ${endY}`;
+
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("class", "line");
+                path.setAttribute("d", pathData);
+
+                svgCanvas.appendChild(path);
+            });
+        }
+
+        // === 5. Инициализация ===
+        document.addEventListener('DOMContentLoaded', () => {
+            buildMap();
+            setTimeout(drawLines, 100); 
+        });
+
+        window.addEventListener('resize', () => {
+            window.requestAnimationFrame(drawLines);
+        });
+
+    </script>
+</body>
+</html>
